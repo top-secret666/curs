@@ -1,0 +1,5 @@
+# placeholder for custom styles
+.root {
+    -fx-font-family: 'Segoe UI', 'Arial', sans-serif;
+    -fx-background-color: #f0f4f8;
+}

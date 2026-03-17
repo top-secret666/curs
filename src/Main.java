@@ -1,0 +1,36 @@
+package triangulation;
+import javafx.application.Application;
+import javafx.scene.Scene;
+import javafx.stage.Stage;
+
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+public class Main extends Application {
+    @Override
+    public void start(Stage primaryStage) {
+        primaryStage.setTitle("Triangulation App");
+        TriangulationUI root = new TriangulationUI(primaryStage);
+        Scene scene = new Scene(root);
+        URL cssUrl = getClass().getResource("/style.css");
+        if (cssUrl == null) {
+            cssUrl = getClass().getResource("/resources/style.css");
+        }
+        if (cssUrl != null) {
+            scene.getStylesheets().add(cssUrl.toExternalForm());
+        } else {
+            Path cssPath = Path.of("resources", "style.css");
+            if (Files.exists(cssPath)) {
+                scene.getStylesheets().add(cssPath.toUri().toString());
+            }
+        }
+
+        primaryStage.setScene(scene);
+        primaryStage.show();
+    }
+
+    public static void main(String[] args) {
+        launch(args);
+    }
+}
