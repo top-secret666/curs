@@ -54,8 +54,9 @@ public class GreedyTriangulation {
             }
         }
 
-        // 4. Формируем треугольники из принятых рёбер
-        // Для каждой тройки точек (i,j,k): если все 3 ребра приняты — это треугольник
+        // 4. Формируем треугольники из принятых рёбер.
+        // Условие "правильного" треугольника триангуляции: все 3 ребра приняты,
+        // И внутри треугольника нет ни одной другой точки из набора.
         Set<String> edgeSet = new HashSet<>();
         for (int[] e : accepted) {
             edgeSet.add(edgeKey(e[0], e[1]));
@@ -65,9 +66,21 @@ public class GreedyTriangulation {
             for (int j = i + 1; j < n; j++) {
                 if (!edgeSet.contains(edgeKey(i, j))) continue;
                 for (int k = j + 1; k < n; k++) {
-                    if (edgeSet.contains(edgeKey(i, k)) && edgeSet.contains(edgeKey(j, k))) {
-                        triangles.add(new TriangulationUI.Triangle(
-                                unique.get(i), unique.get(j), unique.get(k)));
+                    if (!edgeSet.contains(edgeKey(i, k)) || !edgeSet.contains(edgeKey(j, k))) continue;
+                    TriangulationUI.Point pi = unique.get(i);
+                    TriangulationUI.Point pj = unique.get(j);
+                    TriangulationUI.Point pk = unique.get(k);
+                    // Проверяем, что внутри треугольника нет других точек
+                    boolean empty = true;
+                    for (int m = 0; m < n; m++) {
+                        if (m == i || m == j || m == k) continue;
+                        if (pointInTriangle(unique.get(m), pi, pj, pk)) {
+                            empty = false;
+                            break;
+                        }
+                    }
+                    if (empty) {
+                        triangles.add(new TriangulationUI.Triangle(pi, pj, pk));
                     }
                 }
             }
@@ -123,5 +136,23 @@ public class GreedyTriangulation {
     private static double cross(TriangulationUI.Point a, TriangulationUI.Point b,
                                 TriangulationUI.Point c) {
         return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+    }
+
+    /**
+     * Проверяет, находится ли точка p строго внутри треугольника (a, b, c).
+     * Использует знаки барицентрических координат (метод знаков).
+     */
+    private static boolean pointInTriangle(TriangulationUI.Point p,
+                                           TriangulationUI.Point a,
+                                           TriangulationUI.Point b,
+                                           TriangulationUI.Point c) {
+        double d1 = cross(a, b, p);
+        double d2 = cross(b, c, p);
+        double d3 = cross(c, a, p);
+        boolean hasNeg = (d1 < -1e-9) || (d2 < -1e-9) || (d3 < -1e-9);
+        boolean hasPos = (d1 >  1e-9) || (d2 >  1e-9) || (d3 >  1e-9);
+        // Строго внутри — все знаки одинаковы и нет нулей (точка не на ребре)
+        return !(hasNeg && hasPos)
+               && Math.abs(d1) > 1e-9 && Math.abs(d2) > 1e-9 && Math.abs(d3) > 1e-9;
     }
 }
