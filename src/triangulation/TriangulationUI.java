@@ -692,23 +692,69 @@ public class TriangulationUI extends HBox {
             gc.setTextAlign(TextAlignment.LEFT);
         }
 
+        // ── HUD: кол-во точек и треугольников ────────────────────────────────
+        String hudPts  = "●  " + points.size() + " точек";
+        String hudTri  = "△  " + triangles.size() + " треугольников";
+        gc.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
+        double pw = hudPts.length() * 7.2;
+        double tw2 = hudTri.length() * 7.2;
+        double hudW = Math.max(pw, tw2) + 24;
+        double hudX = W - hudW - 12, hudY = 12;
+        gc.setFill(Color.web("#1e293b", 0.78));
+        gc.fillRoundRect(hudX, hudY, hudW, 50, 10, 10);
+        gc.setFill(Color.web("#60a5fa"));
+        gc.fillText(hudPts, hudX + 12, hudY + 20);
+        gc.setFill(Color.web("#34d399"));
+        gc.fillText(hudTri, hudX + 12, hudY + 40);
+    }
 
     private void drawEmpty() {
         GraphicsContext gc = canvas.getGraphicsContext2D();
         double W = canvas.getWidth(), H = canvas.getHeight();
-        gc.setFill(Color.web("#f8f9fa"));
-        gc.fillRect(0, 0, W, H);
-        gc.setStroke(Color.web("#dee2e6"));
-        gc.setLineWidth(0.5);
-        for (double x = 0; x < W; x += 50) gc.strokeLine(x, 0, x, H);
-        for (double y = 0; y < H; y += 50) gc.strokeLine(0, y, W, y);
 
-        gc.setFill(Color.web("#adb5bd"));
-        gc.setFont(Font.font("Segoe UI", 15));
-        String hint = mouseMode
-                ? "Кликните мышью для добавления точек"
-                : "Введите точки слева или загрузите файл";
-        gc.fillText(hint, W / 2 - 140, H / 2);
+        // Фон
+        gc.setFill(Color.web("#eef2f8"));
+        gc.fillRect(0, 0, W, H);
+
+        // Мелкая сетка
+        gc.setStroke(Color.web("#dde4ef"));
+        gc.setLineWidth(1.0);
+        for (double x = 0; x < W; x += 40) gc.strokeLine(x, 0, x, H);
+        for (double y = 0; y < H; y += 40) gc.strokeLine(0, y, W, y);
+        // Крупная сетка
+        gc.setStroke(Color.web("#c8d3e5"));
+        for (double x = 0; x < W; x += 200) gc.strokeLine(x, 0, x, H);
+        for (double y = 0; y < H; y += 200) gc.strokeLine(0, y, W, y);
+
+        double cx = W / 2, cy = H / 2;
+
+        // Большой круг-подложка
+        gc.setFill(Color.web("#dbeafe", 0.60));
+        gc.fillOval(cx - 56, cy - 92, 112, 112);
+        gc.setStroke(Color.web("#93c5fd"));
+        gc.setLineWidth(1.5);
+        gc.strokeOval(cx - 56, cy - 92, 112, 112);
+
+        // Икона «плюс»
+        gc.setFill(Color.web("#2563eb"));
+        gc.setFont(Font.font("Segoe UI", FontWeight.BOLD, 52));
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.fillText("+", cx, cy - 22);
+
+        // Основной заголовок
+        gc.setFill(Color.web("#1e3a5f"));
+        gc.setFont(Font.font("Segoe UI", FontWeight.BOLD, 17));
+        gc.fillText(mouseMode ? "Кликните, чтобы поставить точку"
+                              : "Введите координаты слева", cx, cy + 52);
+
+        // Подсказка
+        gc.setFill(Color.web("#64748b"));
+        gc.setFont(Font.font("Segoe UI", 13));
+        gc.fillText(mouseMode
+                ? "ЛКМ — добавить   ·   ПКМ — удалить последнюю"
+                : "Формат: x y   (по одной паре на строку)", cx, cy + 78);
+
+        gc.setTextAlign(TextAlignment.LEFT);
     }
 
     private static double sx(Point p, double minX, double scale, double offX) {

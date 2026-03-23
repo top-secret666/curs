@@ -36,26 +36,3 @@ public class Main extends Application {
         launch(args);
     }
 }
-
-        URL cssUrl = getClass().getResource("/style.css");
-        if (cssUrl == null) {
-            cssUrl = getClass().getResource("/resources/style.css");
-        }
-        if (cssUrl != null) {
-            scene.getStylesheets().add(cssUrl.toExternalForm());
-        } else {
-            Path cssPath = Path.of("resources", "style.css");
-            if (Files.exists(cssPath)) {
-                scene.getStylesheets().add(cssPath.toUri().toString());
-            }
-        }
-        primaryStage.setScene(scene);
-        primaryStage.setMinWidth(600);
-        primaryStage.setMinHeight(500);
-        primaryStage.show();
-    }
-
-    public static void main(String[] args) {
-        launch(args);
-    }
-}
