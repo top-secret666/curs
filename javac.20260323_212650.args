@@ -1,0 +1,16 @@
+-encoding
+UTF-8
+-cp
+lib\\sqlite-jdbc.jar
+--module-path
+C:\\javafx-sdk\\lib
+--add-modules
+javafx.controls,javafx.fxml
+-d
+out
+D:\\HUH\\curs\\src\\triangulation\\Main.java
+D:\\HUH\\curs\\src\\triangulation\\algorithm\\GreedyTriangulation.java
+D:\\HUH\\curs\\src\\triangulation\\db\\DatabaseManager.java
+D:\\HUH\\curs\\src\\triangulation\\model\\Point.java
+D:\\HUH\\curs\\src\\triangulation\\model\\Triangle.java
+D:\\HUH\\curs\\src\\triangulation\\ui\\TriangulationUI.java
