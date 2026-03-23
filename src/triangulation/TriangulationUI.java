@@ -5,6 +5,9 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
+import javafx.scene.Cursor;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.LinearGradient;
 import javafx.scene.paint.Stop;
@@ -27,6 +30,8 @@ public class TriangulationUI extends VBox {
     private Label validationLabel;
     private List<Point> points = new ArrayList<>();
     private List<Triangle> triangles = new ArrayList<>();
+    // Параметры текущего отображения для преобразования координат мыши
+    private double viewMinX = 0, viewMinY = 0, viewScale = 1, viewOffX = 0, viewOffY = 0;
 
     public TriangulationUI(Stage stage) {
         setSpacing(16);
@@ -108,6 +113,12 @@ public class TriangulationUI extends VBox {
         VBox vizCard = new VBox(10, vizLabel, canvasPane);
         vizCard.getStyleClass().add("card");
 
+        // ===== Разметка: две колонки =====
+        VBox leftCol = new VBox(12, inputCard, triangulateBtn, outputCard);
+        leftCol.setPrefWidth(340);
+        HBox mainContent = new HBox(16, leftCol, vizCard);
+        HBox.setHgrow(vizCard, Priority.ALWAYS);
+
         // ===== Статус-бар =====
         HBox statusBar = new HBox();
         statusBar.getStyleClass().add("status-bar");
@@ -116,8 +127,72 @@ public class TriangulationUI extends VBox {
         statusLabel.getStyleClass().add("status-label");
         statusBar.getChildren().add(statusLabel);
 
-        getChildren().addAll(title, inputCard, triangulateBtn, outputCard, vizCard, statusBar);
-        VBox.setVgrow(vizCard, Priority.ALWAYS);
+        getChildren().addAll(title, mainContent, statusBar);
+        VBox.setVgrow(mainContent, Priority.ALWAYS);
+    }
+
+    // Обработчик клика по canvas — добавление / удаление точки
+    private void setupCanvasInteraction() {
+        canvas.addEventHandler(MouseEvent.MOUSE_CLICKED, e -> {
+            if (e.getButton() == MouseButton.PRIMARY) {
+                // Добавить точку
+                double mx = e.getX();
+                double my = e.getY();
+                // Преобразуем экранные координаты в координаты данных
+                double x = (mx - viewOffX) / viewScale + viewMinX;
+                double y = (my - viewOffY) / viewScale + viewMinY;
+                // Округлим до 2 знаков
+                x = Math.round(x * 100.0) / 100.0;
+                y = Math.round(y * 100.0) / 100.0;
+                // Добавляем строку в inputArea
+                String line = x + " " + y;
+                if (!inputArea.getText().endsWith("\n") && !inputArea.getText().isEmpty()) inputArea.appendText("\n");
+                inputArea.appendText(line + "\n");
+                validateInput(inputArea.getText());
+                triangulate();
+            } else if (e.getButton() == MouseButton.SECONDARY) {
+                // Удалить ближайшую точку, если близко
+                double mx = e.getX();
+                double my = e.getY();
+                double x = (mx - viewOffX) / viewScale + viewMinX;
+                double y = (my - viewOffY) / viewScale + viewMinY;
+                int nearest = -1;
+                double best = Double.MAX_VALUE;
+                for (int i = 0; i < points.size(); i++) {
+                    Point p = points.get(i);
+                    double d = Math.hypot(p.x - x, p.y - y);
+                    if (d < best) { best = d; nearest = i; }
+                }
+                if (nearest != -1 && best < 12.0 / viewScale) { // порог в пикселях
+                    // Удаляем строку из inputArea, пересоздаем текст
+                    List<String> lines = new ArrayList<>();
+                    for (String l : inputArea.getText().split("\\n")) {
+                        String t = l.trim();
+                        if (t.isEmpty()) continue;
+                        lines.add(t);
+                    }
+                    // Найдём ближай соответствующий по координатам
+                    Point removed = points.get(nearest);
+                    String key = String.format("%.2f %.2f", removed.x, removed.y);
+                    boolean removedFlag = false;
+                    StringBuilder sb = new StringBuilder();
+                    for (String l : lines) {
+                        String normalized = l.replace(',', '.').trim().replaceAll("\\s+", " ");
+                        if (!removedFlag && (normalized.equals(key) || normalized.equals(String.format("%.2f %.2f", removed.x, removed.y)))) {
+                            removedFlag = true;
+                            continue; // skip
+                        }
+                        sb.append(l).append("\n");
+                    }
+                    inputArea.setText(sb.toString().trim());
+                    validateInput(inputArea.getText());
+                    triangulate();
+                }
+            }
+        });
+        // Курсор при наведении
+        canvas.setOnMouseEntered(e -> canvas.setCursor(Cursor.CROSSHAIR));
+        canvas.setOnMouseExited(e -> canvas.setCursor(Cursor.DEFAULT));
     }
 
     // ===== Валидация ввода в реальном времени =====
