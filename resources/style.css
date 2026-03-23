@@ -1,5 +1,165 @@
-# placeholder for custom styles
+/* ===== Основные стили ===== */
 .root {
     -fx-font-family: 'Segoe UI', 'Arial', sans-serif;
-    -fx-background-color: #f0f4f8;
+    -fx-font-size: 14px;
+    -fx-background-color: linear-gradient(to bottom right, #e8edf5, #d5dce8);
+}
+
+/* ===== Заголовки ===== */
+.title-label {
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2c3e50;
+    -fx-padding: 0 0 5 0;
+}
+
+.section-label {
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #34495e;
+}
+
+/* ===== Панели ===== */
+.card {
+    -fx-background-color: white;
+    -fx-background-radius: 12;
+    -fx-border-radius: 12;
+    -fx-border-color: #c8d6e5;
+    -fx-border-width: 1;
+    -fx-padding: 16;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.08), 10, 0, 0, 3);
+}
+
+/* ===== Текстовые поля ===== */
+.text-area {
+    -fx-background-color: #f8f9fa;
+    -fx-border-color: #adb5bd;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-font-family: 'Consolas', 'Courier New', monospace;
+    -fx-font-size: 13px;
+}
+
+.text-area:focused {
+    -fx-border-color: #3498db;
+    -fx-border-width: 2;
+    -fx-effect: dropshadow(gaussian, rgba(52,152,219,0.25), 8, 0, 0, 0);
+}
+
+.text-area .content {
+    -fx-background-color: #f8f9fa;
+    -fx-background-radius: 8;
+}
+
+/* ===== Кнопки ===== */
+.button {
+    -fx-background-color: #3498db;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-font-size: 13px;
+    -fx-padding: 10 24;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(52,152,219,0.3), 6, 0, 0, 2);
+}
+
+.button:hover {
+    -fx-background-color: #2980b9;
+    -fx-effect: dropshadow(gaussian, rgba(41,128,185,0.4), 8, 0, 0, 3);
+}
+
+.button:pressed {
+    -fx-background-color: #1a6da0;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 4, 0, 0, 1);
+}
+
+.btn-primary {
+    -fx-background-color: linear-gradient(to bottom, #27ae60, #219a52);
+    -fx-font-size: 15px;
+    -fx-padding: 12 32;
+    -fx-effect: dropshadow(gaussian, rgba(39,174,96,0.4), 8, 0, 0, 3);
+}
+
+.btn-primary:hover {
+    -fx-background-color: linear-gradient(to bottom, #2ecc71, #27ae60);
+}
+
+.btn-primary:pressed {
+    -fx-background-color: #1e8449;
+}
+
+.btn-secondary {
+    -fx-background-color: #6c757d;
+}
+
+.btn-secondary:hover {
+    -fx-background-color: #5a6268;
+}
+
+.btn-danger {
+    -fx-background-color: #e74c3c;
+}
+
+.btn-danger:hover {
+    -fx-background-color: #c0392b;
+}
+
+/* ===== Canvas-контейнер ===== */
+.canvas-pane {
+    -fx-background-color: white;
+    -fx-border-color: #bdc3c7;
+    -fx-border-width: 2;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.06), 6, 0, 0, 2);
+}
+
+/* ===== Статус-бар ===== */
+.status-bar {
+    -fx-background-color: #2c3e50;
+    -fx-background-radius: 8;
+    -fx-padding: 8 16;
+}
+
+.status-label {
+    -fx-text-fill: #ecf0f1;
+    -fx-font-size: 12px;
+}
+
+/* ===== Валидация ===== */
+.validation-error {
+    -fx-border-color: #e74c3c;
+    -fx-border-width: 2;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+
+.validation-ok {
+    -fx-border-color: #27ae60;
+    -fx-border-width: 2;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+
+.error-text {
+    -fx-text-fill: #e74c3c;
+    -fx-font-size: 12px;
+    -fx-font-style: italic;
+}
+
+/* ===== ScrollPane ===== */
+.scroll-pane {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.scroll-pane > .viewport {
+    -fx-background-color: transparent;
+}
+
+/* ===== Separator ===== */
+.separator .line {
+    -fx-border-color: #dfe6e9;
+    -fx-border-width: 1 0 0 0;
 }
