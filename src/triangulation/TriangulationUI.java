@@ -1,16 +1,11 @@
 package triangulation;
 
+import javafx.beans.binding.Bindings;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
-import javafx.scene.Cursor;
-import javafx.scene.input.MouseButton;
-import javafx.scene.input.MouseEvent;
-import javafx.scene.paint.CycleMethod;
-import javafx.scene.paint.LinearGradient;
-import javafx.scene.paint.Stop;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.FileChooser;
@@ -22,104 +17,214 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
-public class TriangulationUI extends VBox {
+public class TriangulationUI extends HBox {
+
+    // ─── данные ───────────────────────────────────────────────────────────────
+    private final List<Point>    points    = new ArrayList<>();
+    private final List<Triangle> triangles = new ArrayList<>();
+
+    // ─── режим мыши ───────────────────────────────────────────────────────────
+    private boolean mouseMode   = false;
+    private boolean autoTriang  = true;
+    /** масштабирование canvas→данные (обновляется при каждой перерисовке) */
+    private double  mapMinX, mapMinY, mapScale, mapOffX, mapOffY;
+    private boolean mapReady = false;
+
+    // ─── UI-компоненты ────────────────────────────────────────────────────────
     private TextArea inputArea;
     private TextArea outputArea;
-    private Canvas canvas;
-    private Label statusLabel;
-    private Label validationLabel;
-    private List<Point> points = new ArrayList<>();
-    private List<Triangle> triangles = new ArrayList<>();
-    // Параметры текущего отображения для преобразования координат мыши
-    private double viewMinX = 0, viewMinY = 0, viewScale = 1, viewOffX = 0, viewOffY = 0;
+    private Canvas   canvas;
+    private Label    statusLabel;
+    private Label    validationLabel;
+    private Label    coordLabel;
+    private Label    modeLabel;
+    private ToggleButton mouseModeBtn;
 
+    // ──────────────────────────────────────────────────────────────────────────
     public TriangulationUI(Stage stage) {
-        setSpacing(16);
-        setPadding(new Insets(20, 24, 20, 24));
+        setSpacing(0);
+        setPadding(Insets.EMPTY);
 
-        // ===== Заголовок =====
-        Label title = new Label("\u25B2 Триангуляция — Жадный алгоритм");
+        // ═════════════════════════ ЛЕВАЯ ПАНЕЛЬ ══════════════════════════════
+        VBox leftPanel = buildLeftPanel(stage);
+        leftPanel.setPrefWidth(310);
+        leftPanel.setMinWidth(260);
+        leftPanel.setMaxWidth(360);
+        leftPanel.getStyleClass().add("left-panel");
+
+        // ═════════════════════════ ПРАВАЯ ПАНЕЛЬ (canvas) ════════════════════
+        VBox rightPanel = buildRightPanel();
+        HBox.setHgrow(rightPanel, Priority.ALWAYS);
+
+        getChildren().addAll(leftPanel, rightPanel);
+    }
+
+    // ──────────────────────────── ЛЕВАЯ ПАНЕЛЬ ────────────────────────────────
+    private VBox buildLeftPanel(Stage stage) {
+        VBox panel = new VBox(14);
+        panel.setPadding(new Insets(20, 16, 16, 20));
+
+        // Заголовок
+        Label title = new Label("▲ Триангуляция");
         title.getStyleClass().add("title-label");
+        Label subtitle = new Label("Жадный алгоритм");
+        subtitle.getStyleClass().add("subtitle-label");
 
-        // ===== Левая часть: ввод =====
-        Label inputLabel = new Label("Ввод точек (x y):");
+        // ── Переключатель режима ──────────────────────────────────────────────
+        mouseModeBtn = new ToggleButton("🖱 Режим мыши");
+        mouseModeBtn.setMaxWidth(Double.MAX_VALUE);
+        mouseModeBtn.getStyleClass().add("mode-toggle");
+        mouseModeBtn.selectedProperty().addListener((obs, o, n) -> {
+            mouseMode = n;
+            modeLabel.setText(mouseMode
+                    ? "▸ Кликните по холсту для добавления точек"
+                    : "▸ Введите координаты в текстовом поле");
+            if (!mouseMode) redrawFromInput();
+        });
+
+        CheckBox autoCheck = new CheckBox("Авто-триангуляция при добавлении");
+        autoCheck.setSelected(true);
+        autoCheck.selectedProperty().addListener((obs, o, n) -> autoTriang = n);
+        autoCheck.getStyleClass().add("auto-check");
+
+        modeLabel = new Label("▸ Введите координаты в текстовом поле");
+        modeLabel.getStyleClass().add("hint-label");
+        modeLabel.setWrapText(true);
+
+        VBox modeCard = new VBox(8, mouseModeBtn, autoCheck, modeLabel);
+        modeCard.getStyleClass().add("card");
+
+        // ── Ввод данных ───────────────────────────────────────────────────────
+        Label inputLabel = new Label("Координаты точек (x y):");
         inputLabel.getStyleClass().add("section-label");
 
         inputArea = new TextArea();
-        inputArea.setPromptText("Введите координаты точек:\n100 100\n200 100\n150 200\n...");
+        inputArea.setPromptText("100 100\n200 100\n150 200\n...");
         inputArea.setPrefRowCount(8);
         inputArea.setWrapText(false);
+        inputArea.textProperty().addListener((obs, o, n) -> validateInput(n));
 
-        // Валидация в реальном времени
         validationLabel = new Label("");
         validationLabel.getStyleClass().add("error-text");
         validationLabel.setWrapText(true);
-        inputArea.textProperty().addListener((obs, oldVal, newVal) -> validateInput(newVal));
 
-        HBox inputButtons = new HBox(10);
-        inputButtons.setAlignment(Pos.CENTER_LEFT);
-        Button loadBtn = new Button("\uD83D\uDCC2 Загрузить из файла");
-        loadBtn.setOnAction(e -> loadFromFile(stage));
-        Button clearBtn = new Button("\u2715 Очистить");
+        Button loadBtn   = new Button("📂 Загрузить файл");
+        Button clearBtn  = new Button("✕ Очистить");
         clearBtn.getStyleClass().add("btn-danger");
-        clearBtn.setOnAction(e -> {
-            inputArea.clear();
-            outputArea.clear();
-            points.clear();
-            triangles.clear();
-            clearCanvas();
-            updateStatus("Готово к вводу данных", false);
-        });
-        inputButtons.getChildren().addAll(loadBtn, clearBtn);
+        loadBtn.setOnAction(e -> loadFromFile(stage));
+        clearBtn.setOnAction(e -> clearAll());
 
-        VBox inputCard = new VBox(10, inputLabel, inputArea, validationLabel, inputButtons);
+        HBox fileButtons = new HBox(8, loadBtn, clearBtn);
+        fileButtons.setAlignment(Pos.CENTER_LEFT);
+
+        Button undoBtn = new Button("↩ Отменить последнюю точку");
+        undoBtn.setMaxWidth(Double.MAX_VALUE);
+        undoBtn.getStyleClass().add("btn-secondary");
+        undoBtn.setOnAction(e -> removeLastPoint());
+
+        VBox inputCard = new VBox(8, inputLabel, inputArea, validationLabel, fileButtons, undoBtn);
         inputCard.getStyleClass().add("card");
 
-        // ===== Кнопка триангуляции =====
-        Button triangulateBtn = new Button("\u25B6 Построить триангуляцию");
+        // ── Кнопка триангуляции ───────────────────────────────────────────────
+        Button triangulateBtn = new Button("▶ Построить триангуляцию");
         triangulateBtn.getStyleClass().add("btn-primary");
         triangulateBtn.setMaxWidth(Double.MAX_VALUE);
         triangulateBtn.setOnAction(e -> triangulate());
 
-        // ===== Правая часть: результат =====
+        // ── Результат ─────────────────────────────────────────────────────────
         Label outputLabel = new Label("Результат:");
         outputLabel.getStyleClass().add("section-label");
 
         outputArea = new TextArea();
         outputArea.setEditable(false);
-        outputArea.setPrefRowCount(6);
-        outputArea.setPromptText("Здесь появятся результаты триангуляции...");
+        outputArea.setPrefRowCount(5);
+        outputArea.setPromptText("Здесь появятся треугольники...");
 
-        HBox outputButtons = new HBox(10);
-        outputButtons.setAlignment(Pos.CENTER_LEFT);
-        Button saveBtn = new Button("\uD83D\uDCBE Сохранить в файл");
+        Button saveBtn = new Button("💾 Сохранить результат");
+        saveBtn.setMaxWidth(Double.MAX_VALUE);
         saveBtn.getStyleClass().add("btn-secondary");
         saveBtn.setOnAction(e -> saveToFile(stage));
-        outputButtons.getChildren().add(saveBtn);
 
-        VBox outputCard = new VBox(10, outputLabel, outputArea, outputButtons);
+        VBox outputCard = new VBox(8, outputLabel, outputArea, saveBtn);
         outputCard.getStyleClass().add("card");
 
-        // ===== Визуализация =====
-        Label vizLabel = new Label("Визуализация:");
-        vizLabel.getStyleClass().add("section-label");
+        VBox.setVgrow(inputCard,  Priority.SOMETIMES);
+        VBox.setVgrow(outputCard, Priority.SOMETIMES);
 
-        canvas = new Canvas(700, 420);
-        StackPane canvasPane = new StackPane(canvas);
-        canvasPane.getStyleClass().add("canvas-pane");
-        canvasPane.setPadding(new Insets(8));
-        clearCanvas();
+        panel.getChildren().addAll(title, subtitle, modeCard, inputCard,
+                                   triangulateBtn, outputCard);
+        VBox.setVgrow(panel, Priority.ALWAYS);
+        return panel;
+    }
 
-        VBox vizCard = new VBox(10, vizLabel, canvasPane);
-        vizCard.getStyleClass().add("card");
+    // ──────────────────────────── ПРАВАЯ ПАНЕЛЬ ───────────────────────────────
+    private VBox buildRightPanel() {
+        VBox panel = new VBox(0);
+        panel.getStyleClass().add("right-panel");
 
-        // ===== Разметка: две колонки =====
-        VBox leftCol = new VBox(12, inputCard, triangulateBtn, outputCard);
-        leftCol.setPrefWidth(340);
-        HBox mainContent = new HBox(16, leftCol, vizCard);
-        HBox.setHgrow(vizCard, Priority.ALWAYS);
+        // ── Тулбар холста ─────────────────────────────────────────────────────
+        coordLabel = new Label("x: —  y: —");
+        coordLabel.getStyleClass().add("coord-label");
 
-        // ===== Статус-бар =====
+        Label canvasTitle = new Label("Визуализация");
+        canvasTitle.getStyleClass().add("canvas-title");
+
+        HBox toolbar = new HBox();
+        toolbar.getStyleClass().add("canvas-toolbar");
+        toolbar.setAlignment(Pos.CENTER_LEFT);
+        HBox left = new HBox(canvasTitle);
+        left.setAlignment(Pos.CENTER_LEFT);
+        HBox right = new HBox(coordLabel);
+        right.setAlignment(Pos.CENTER_RIGHT);
+        HBox.setHgrow(left,  Priority.ALWAYS);
+        HBox.setHgrow(right, Priority.ALWAYS);
+        toolbar.getChildren().addAll(left, right);
+
+        // ── Canvas ────────────────────────────────────────────────────────────
+        Pane canvasHolder = new Pane();
+        canvasHolder.getStyleClass().add("canvas-holder");
+        VBox.setVgrow(canvasHolder, Priority.ALWAYS);
+
+        canvas = new Canvas();
+        canvas.widthProperty() .bind(canvasHolder.widthProperty());
+        canvas.heightProperty().bind(canvasHolder.heightProperty());
+        canvas.widthProperty() .addListener(e -> redraw());
+        canvas.heightProperty().addListener(e -> redraw());
+        canvasHolder.getChildren().add(canvas);
+
+        // ── Обработчики мыши ──────────────────────────────────────────────────
+        canvas.setOnMouseClicked(ev -> {
+            if (!mouseMode) return;
+            if (ev.getButton() == javafx.scene.input.MouseButton.PRIMARY) {
+                addMousePoint(ev.getX(), ev.getY());
+            } else if (ev.getButton() == javafx.scene.input.MouseButton.SECONDARY) {
+                removeLastPoint();
+            }
+        });
+
+        canvas.setOnMouseMoved(ev -> {
+            if (!mouseMode) {
+                coordLabel.setText("x: —  y: —");
+                return;
+            }
+            // Обратное преобразование: screen → data coords
+            if (mapReady && mapScale > 0) {
+                double dataX = (ev.getX() - mapOffX) / mapScale + mapMinX;
+                double dataY = (ev.getY() - mapOffY) / mapScale + mapMinY;
+                coordLabel.setText(String.format("x: %.0f  y: %.0f", dataX, dataY));
+            } else {
+                // Пока нет данных — показываем пиксельные координаты
+                coordLabel.setText(String.format("x: %.0f  y: %.0f", ev.getX(), ev.getY()));
+            }
+            drawCrosshair(ev.getX(), ev.getY());
+        });
+
+        canvas.setOnMouseExited(ev -> {
+            coordLabel.setText("x: —  y: —");
+            redraw();
+        });
+
+        // ── Статус-бар ────────────────────────────────────────────────────────
         HBox statusBar = new HBox();
         statusBar.getStyleClass().add("status-bar");
         statusBar.setAlignment(Pos.CENTER_LEFT);
@@ -127,148 +232,134 @@ public class TriangulationUI extends VBox {
         statusLabel.getStyleClass().add("status-label");
         statusBar.getChildren().add(statusLabel);
 
-        getChildren().addAll(title, mainContent, statusBar);
-        VBox.setVgrow(mainContent, Priority.ALWAYS);
+        panel.getChildren().addAll(toolbar, canvasHolder, statusBar);
+
+        // Первая отрисовка после layout
+        canvasHolder.layoutBoundsProperty().addListener(
+            (obs, o, n) -> { if (n.getWidth() > 0) redraw(); });
+
+        return panel;
     }
 
-    // Обработчик клика по canvas — добавление / удаление точки
-    private void setupCanvasInteraction() {
-        canvas.addEventHandler(MouseEvent.MOUSE_CLICKED, e -> {
-            if (e.getButton() == MouseButton.PRIMARY) {
-                // Добавить точку
-                double mx = e.getX();
-                double my = e.getY();
-                // Преобразуем экранные координаты в координаты данных
-                double x = (mx - viewOffX) / viewScale + viewMinX;
-                double y = (my - viewOffY) / viewScale + viewMinY;
-                // Округлим до 2 знаков
-                x = Math.round(x * 100.0) / 100.0;
-                y = Math.round(y * 100.0) / 100.0;
-                // Добавляем строку в inputArea
-                String line = x + " " + y;
-                if (!inputArea.getText().endsWith("\n") && !inputArea.getText().isEmpty()) inputArea.appendText("\n");
-                inputArea.appendText(line + "\n");
-                validateInput(inputArea.getText());
-                triangulate();
-            } else if (e.getButton() == MouseButton.SECONDARY) {
-                // Удалить ближайшую точку, если близко
-                double mx = e.getX();
-                double my = e.getY();
-                double x = (mx - viewOffX) / viewScale + viewMinX;
-                double y = (my - viewOffY) / viewScale + viewMinY;
-                int nearest = -1;
-                double best = Double.MAX_VALUE;
-                for (int i = 0; i < points.size(); i++) {
-                    Point p = points.get(i);
-                    double d = Math.hypot(p.x - x, p.y - y);
-                    if (d < best) { best = d; nearest = i; }
-                }
-                if (nearest != -1 && best < 12.0 / viewScale) { // порог в пикселях
-                    // Удаляем строку из inputArea, пересоздаем текст
-                    List<String> lines = new ArrayList<>();
-                    for (String l : inputArea.getText().split("\\n")) {
-                        String t = l.trim();
-                        if (t.isEmpty()) continue;
-                        lines.add(t);
-                    }
-                    // Найдём ближай соответствующий по координатам
-                    Point removed = points.get(nearest);
-                    String key = String.format("%.2f %.2f", removed.x, removed.y);
-                    boolean removedFlag = false;
-                    StringBuilder sb = new StringBuilder();
-                    for (String l : lines) {
-                        String normalized = l.replace(',', '.').trim().replaceAll("\\s+", " ");
-                        if (!removedFlag && (normalized.equals(key) || normalized.equals(String.format("%.2f %.2f", removed.x, removed.y)))) {
-                            removedFlag = true;
-                            continue; // skip
-                        }
-                        sb.append(l).append("\n");
-                    }
-                    inputArea.setText(sb.toString().trim());
-                    validateInput(inputArea.getText());
-                    triangulate();
-                }
-            }
-        });
-        // Курсор при наведении
-        canvas.setOnMouseEntered(e -> canvas.setCursor(Cursor.CROSSHAIR));
-        canvas.setOnMouseExited(e -> canvas.setCursor(Cursor.DEFAULT));
+    // ──────────────────────────── МЫШЬ ────────────────────────────────────────
+    private void addMousePoint(double screenX, double screenY) {
+        // Перевод экранных coords в data-coords
+        double dataX, dataY;
+        if (mapReady && mapScale > 0) {
+            dataX = (screenX - mapOffX) / mapScale + mapMinX;
+            dataY = (screenY - mapOffY) / mapScale + mapMinY;
+        } else {
+            dataX = screenX;
+            dataY = screenY;
+        }
+
+        // Добавляем в поле ввода
+        String existing = inputArea.getText().trim();
+        String newLine  = String.format("%.0f %.0f", dataX, dataY);
+        inputArea.setText(existing.isEmpty() ? newLine : existing + "\n" + newLine);
+
+        // Синхронизируем список точек
+        points.add(new Point(dataX, dataY));
+        redraw();
+
+        if (autoTriang && points.size() >= 3 && !areAllCollinear(points)) {
+            triangulateInternal();
+        }
+
+        updateStatus("Добавлена точка (" + (int)dataX + ", " + (int)dataY
+                + ")  |  Всего: " + points.size(), false);
     }
 
-    // ===== Валидация ввода в реальном времени =====
+    private void removeLastPoint() {
+        if (points.isEmpty()) return;
+        points.remove(points.size() - 1);
+        // Убираем последнюю строку из inputArea
+        String text = inputArea.getText().trim();
+        int lastNl = text.lastIndexOf('\n');
+        inputArea.setText(lastNl >= 0 ? text.substring(0, lastNl) : "");
+        triangles.clear();
+        if (autoTriang && points.size() >= 3 && !areAllCollinear(points)) {
+            triangulateInternal();
+        }
+        redraw();
+        updateStatus("Точка удалена  |  Осталось: " + points.size(), false);
+    }
+
+    private void clearAll() {
+        inputArea.clear();
+        outputArea.clear();
+        points.clear();
+        triangles.clear();
+        mapReady = false;
+        redraw();
+        updateStatus("Данные очищены", false);
+    }
+
+    // ──────────────────────────── ВАЛИДАЦИЯ ───────────────────────────────────
     private void validateInput(String text) {
         if (text == null || text.trim().isEmpty()) {
             validationLabel.setText("");
             inputArea.getStyleClass().removeAll("validation-error", "validation-ok");
             return;
         }
-
         List<String> errors = new ArrayList<>();
         String[] lines = text.split("\n");
         int validCount = 0;
         Set<String> seen = new HashSet<>();
         int lineNum = 0;
-
         for (String line : lines) {
             lineNum++;
-            String trimmed = line.trim();
-            if (trimmed.isEmpty()) continue;
-
-            // Заменяем запятую на точку, табы на пробелы
-            trimmed = trimmed.replace(',', '.').replace('\t', ' ');
+            String trimmed = line.trim().replace(',', '.').replace('\t', ' ');
+            if (trimmed.isEmpty() || trimmed.startsWith("#")) continue;
             String[] parts = trimmed.split("\\s+");
-
             if (parts.length != 2) {
-                errors.add("Строка " + lineNum + ": ожидается 2 числа (x y), найдено " + parts.length);
+                errors.add("Стр. " + lineNum + ": нужно 2 числа, найдено " + parts.length);
                 continue;
             }
-
             try {
                 double x = Double.parseDouble(parts[0]);
                 double y = Double.parseDouble(parts[1]);
-
-                if (Double.isNaN(x) || Double.isInfinite(x) ||
-                    Double.isNaN(y) || Double.isInfinite(y)) {
-                    errors.add("Строка " + lineNum + ": недопустимое значение (NaN/Infinity)");
+                if (Double.isNaN(x) || Double.isInfinite(x) || Double.isNaN(y) || Double.isInfinite(y)) {
+                    errors.add("Стр. " + lineNum + ": NaN/Infinity");
                     continue;
                 }
-
                 if (x < -10000 || x > 10000 || y < -10000 || y > 10000) {
-                    errors.add("Строка " + lineNum + ": координаты вне диапазона [-10000, 10000]");
+                    errors.add("Стр. " + lineNum + ": вне диапазона [-10000, 10000]");
                     continue;
                 }
-
                 String key = Math.round(x * 100) + ";" + Math.round(y * 100);
                 if (seen.contains(key)) {
-                    errors.add("Строка " + lineNum + ": дубликат точки (" + x + ", " + y + ")");
+                    errors.add("Стр. " + lineNum + ": дубликат (" + (int)x + ", " + (int)y + ")");
                     continue;
                 }
                 seen.add(key);
                 validCount++;
             } catch (NumberFormatException e) {
-                errors.add("Строка " + lineNum + ": \"" + trimmed + "\" — не числа");
+                errors.add("Стр. " + lineNum + ": не числа");
             }
         }
-
         inputArea.getStyleClass().removeAll("validation-error", "validation-ok");
-
         if (!errors.isEmpty()) {
-            String msg = String.join("\n", errors);
-            if (errors.size() > 3) {
-                msg = String.join("\n", errors.subList(0, 3)) + "\n...ещё " + (errors.size() - 3) + " ошибок";
-            }
-            validationLabel.setText("\u26A0 " + msg);
+            validationLabel.getStyleClass().remove("ok-text");
+            validationLabel.getStyleClass().add("error-text");
+            String msg = String.join("\n", errors.subList(0, Math.min(3, errors.size())));
+            if (errors.size() > 3) msg += "\n...ещё " + (errors.size() - 3);
+            validationLabel.setText("⚠ " + msg);
             inputArea.getStyleClass().add("validation-error");
         } else if (validCount < 3) {
-            validationLabel.setText("\u26A0 Нужно минимум 3 точки для триангуляции (сейчас: " + validCount + ")");
+            validationLabel.getStyleClass().remove("ok-text");
+            validationLabel.getStyleClass().add("error-text");
+            validationLabel.setText("⚠ Нужно минимум 3 точки (сейчас: " + validCount + ")");
             inputArea.getStyleClass().add("validation-error");
         } else {
-            validationLabel.setText("\u2713 " + validCount + " точек готово к триангуляции");
-            validationLabel.setStyle("-fx-text-fill: #27ae60;");
+            validationLabel.getStyleClass().remove("error-text");
+            validationLabel.getStyleClass().add("ok-text");
+            validationLabel.setText("✓ " + validCount + " точек готово");
             inputArea.getStyleClass().add("validation-ok");
         }
     }
 
+    // ──────────────────────────── ФАЙЛЫ ───────────────────────────────────────
     private void loadFromFile(Stage stage) {
         FileChooser fc = new FileChooser();
         fc.setTitle("Открыть файл с точками");
@@ -281,9 +372,7 @@ public class TriangulationUI extends VBox {
                     new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
                 StringBuilder sb = new StringBuilder();
                 String line;
-                while ((line = br.readLine()) != null) {
-                    sb.append(line).append("\n");
-                }
+                while ((line = br.readLine()) != null) sb.append(line).append("\n");
                 inputArea.setText(sb.toString().trim());
                 updateStatus("Файл загружен: " + file.getName(), false);
             } catch (IOException ex) {
@@ -294,97 +383,98 @@ public class TriangulationUI extends VBox {
 
     private void saveToFile(Stage stage) {
         if (outputArea.getText().isEmpty()) {
-            showError("Нет данных для сохранения. Сначала постройте триангуляцию.");
+            showError("Нет данных. Сначала постройте триангуляцию.");
             return;
         }
         FileChooser fc = new FileChooser();
         fc.setTitle("Сохранить результат");
-        fc.getExtensionFilters().add(
-                new FileChooser.ExtensionFilter("Текстовые файлы", "*.txt"));
+        fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Текстовые файлы", "*.txt"));
         File file = fc.showSaveDialog(stage);
         if (file != null) {
             try (PrintWriter pw = new PrintWriter(
                     new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8))) {
                 pw.print(outputArea.getText());
-                updateStatus("Результат сохранён: " + file.getName(), false);
+                updateStatus("Сохранено: " + file.getName(), false);
             } catch (IOException ex) {
-                showError("Ошибка записи файла: " + ex.getMessage());
+                showError("Ошибка записи: " + ex.getMessage());
             }
         }
     }
 
-    private void triangulate() {
+    // ──────────────────────────── ТРИАНГУЛЯЦИЯ ────────────────────────────────
+    /** Пересчёт из текстового поля (не мышь) */
+    private void redrawFromInput() {
         points.clear();
         triangles.clear();
+        parsePointsFromText();
+        redraw();
+    }
 
-        // Парсинг с валидацией
-        List<String> errors = new ArrayList<>();
+    private void parsePointsFromText() {
         String[] lines = inputArea.getText().split("\n");
-        int lineNum = 0;
-
         for (String line : lines) {
-            lineNum++;
-            String trimmed = line.trim();
-            if (trimmed.isEmpty()) continue;
-
-            trimmed = trimmed.replace(',', '.').replace('\t', ' ');
-            String[] parts = trimmed.split("\\s+");
-
-            if (parts.length != 2) {
-                errors.add("Строка " + lineNum + ": ожидается 2 числа, получено " + parts.length);
-                continue;
-            }
-
+            String t = line.trim().replace(',', '.').replace('\t', ' ');
+            if (t.isEmpty() || t.startsWith("#")) continue;
+            String[] parts = t.split("\\s+");
+            if (parts.length != 2) continue;
             try {
                 double x = Double.parseDouble(parts[0]);
                 double y = Double.parseDouble(parts[1]);
+                if (!Double.isNaN(x) && !Double.isInfinite(x)
+                        && !Double.isNaN(y) && !Double.isInfinite(y))
+                    points.add(new Point(x, y));
+            } catch (NumberFormatException ignored) {}
+        }
+    }
 
-                if (Double.isNaN(x) || Double.isInfinite(x) ||
-                    Double.isNaN(y) || Double.isInfinite(y)) {
-                    errors.add("Строка " + lineNum + ": недопустимое значение");
-                    continue;
-                }
-
-                points.add(new Point(x, y));
-            } catch (NumberFormatException e) {
-                errors.add("Строка " + lineNum + ": \"" + trimmed + "\" — не числа");
+    private void triangulate() {
+        if (!mouseMode) {
+            points.clear();
+            triangles.clear();
+            List<String> errors = new ArrayList<>();
+            String[] lines = inputArea.getText().split("\n");
+            int lineNum = 0;
+            for (String line : lines) {
+                lineNum++;
+                String t = line.trim().replace(',', '.').replace('\t', ' ');
+                if (t.isEmpty() || t.startsWith("#")) continue;
+                String[] parts = t.split("\\s+");
+                if (parts.length != 2) { errors.add("Стр. " + lineNum + ": нужно 2 числа"); continue; }
+                try {
+                    double x = Double.parseDouble(parts[0]);
+                    double y = Double.parseDouble(parts[1]);
+                    if (Double.isNaN(x) || Double.isInfinite(x) || Double.isNaN(y) || Double.isInfinite(y)) {
+                        errors.add("Стр. " + lineNum + ": NaN/Infinity"); continue;
+                    }
+                    points.add(new Point(x, y));
+                } catch (NumberFormatException e) { errors.add("Стр. " + lineNum + ": не числа"); }
             }
+            if (!errors.isEmpty()) { showError("Ошибки:\n" + String.join("\n", errors)); return; }
         }
 
-        if (!errors.isEmpty()) {
-            showError("Ошибки ввода:\n" + String.join("\n", errors));
-            return;
-        }
+        if (points.size() < 3) { showError("Нужно минимум 3 точки.\nСейчас: " + points.size()); return; }
+        if (areAllCollinear(points)) { showError("Все точки на одной прямой — триангуляция невозможна."); return; }
 
-        if (points.size() < 3) {
-            showError("Нужно минимум 3 точки для триангуляции.\nСейчас введено: " + points.size());
-            return;
-        }
+        triangulateInternal();
+    }
 
-        // Проверка коллинеарности
-        if (areAllCollinear(points)) {
-            showError("Все точки лежат на одной прямой — триангуляция невозможна.");
-            return;
-        }
-
-        long startTime = System.nanoTime();
+    private void triangulateInternal() {
+        long t0 = System.nanoTime();
         triangles = GreedyTriangulation.triangulate(points);
-        long elapsed = (System.nanoTime() - startTime) / 1_000_000;
+        long ms = (System.nanoTime() - t0) / 1_000_000;
 
         StringBuilder sb = new StringBuilder();
-        sb.append("=== Результат жадной триангуляции ===\n");
-        sb.append("Точек: ").append(points.size()).append("\n");
-        sb.append("Треугольников: ").append(triangles.size()).append("\n");
-        sb.append("Время: ").append(elapsed).append(" мс\n");
-        sb.append("=====================================\n\n");
-        for (int i = 0; i < triangles.size(); i++) {
-            Triangle t = triangles.get(i);
-            sb.append("△ ").append(i + 1).append(": ").append(t).append("\n");
-        }
+        sb.append("=== Жадная триангуляция ===\n");
+        sb.append("Точек:        ").append(points.size()).append("\n");
+        sb.append("Треугольников:").append(triangles.size()).append("\n");
+        sb.append("Время:        ").append(ms).append(" мс\n");
+        sb.append("───────────────────────────\n");
+        for (int i = 0; i < triangles.size(); i++)
+            sb.append("△ ").append(i + 1).append(": ").append(triangles.get(i)).append("\n");
         outputArea.setText(sb.toString());
-        drawTriangles();
-        updateStatus("Триангуляция: " + triangles.size() + " треугольников из "
-                + points.size() + " точек за " + elapsed + " мс", false);
+        redraw();
+        updateStatus("Триангуляция: " + triangles.size() + " △ из "
+                + points.size() + " точек за " + ms + " мс", false);
     }
 
     private boolean areAllCollinear(List<Point> pts) {
@@ -398,138 +488,164 @@ public class TriangulationUI extends VBox {
         return true;
     }
 
-    private void clearCanvas() {
-        GraphicsContext gc = canvas.getGraphicsContext2D();
-        gc.setFill(Color.web("#f8f9fa"));
-        gc.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
-
-        // Сетка
-        gc.setStroke(Color.web("#e9ecef"));
-        gc.setLineWidth(0.5);
-        for (double x = 0; x < canvas.getWidth(); x += 50) {
-            gc.strokeLine(x, 0, x, canvas.getHeight());
-        }
-        for (double y = 0; y < canvas.getHeight(); y += 50) {
-            gc.strokeLine(0, y, canvas.getWidth(), y);
-        }
-
-        gc.setFill(Color.web("#adb5bd"));
-        gc.setFont(Font.font("Segoe UI", 11));
-        gc.fillText("Здесь будет визуализация", canvas.getWidth() / 2 - 80, canvas.getHeight() / 2);
+    // ──────────────────────────── РИСОВАНИЕ ───────────────────────────────────
+    private void redraw() {
+        if (canvas.getWidth() <= 0 || canvas.getHeight() <= 0) return;
+        if (points.isEmpty()) { drawEmpty(); return; }
+        drawScene(null, -1, -1);
     }
 
-    private void drawTriangles() {
+    private void drawCrosshair(double cx, double cy) {
+        if (canvas.getWidth() <= 0) return;
+        drawScene(new double[]{cx, cy}, cx, cy);
+    }
+
+    private void drawScene(double[] crosshair, double cx, double cy) {
         GraphicsContext gc = canvas.getGraphicsContext2D();
+        double W = canvas.getWidth(), H = canvas.getHeight();
+
+        // Фон
         gc.setFill(Color.web("#f8f9fa"));
-        gc.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
+        gc.fillRect(0, 0, W, H);
+
+        // Сетка
+        gc.setStroke(Color.web("#dee2e6"));
+        gc.setLineWidth(0.5);
+        for (double x = 0; x < W; x += 50) gc.strokeLine(x, 0, x, H);
+        for (double y = 0; y < H; y += 50) gc.strokeLine(0, y, W, y);
 
         if (points.isEmpty()) return;
 
-        // Вычисляем bounding box и масштаб для авто-подгонки
+        // ── Масштаб ──────────────────────────────────────────────────────────
         double minX = Double.MAX_VALUE, maxX = -Double.MAX_VALUE;
         double minY = Double.MAX_VALUE, maxY = -Double.MAX_VALUE;
         for (Point p : points) {
-            minX = Math.min(minX, p.x);
-            maxX = Math.max(maxX, p.x);
-            minY = Math.min(minY, p.y);
-            maxY = Math.max(maxY, p.y);
+            minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+            minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
         }
+        double dW = Math.max(maxX - minX, 1);
+        double dH = Math.max(maxY - minY, 1);
+        double pad  = 45;
+        double scaleX = (W - 2 * pad) / dW;
+        double scaleY = (H - 2 * pad) / dH;
+        double scale  = Math.min(scaleX, scaleY);
+        double offX   = pad + ((W - 2 * pad) - dW * scale) / 2;
+        double offY   = pad + ((H - 2 * pad) - dH * scale) / 2;
 
-        double dataW = maxX - minX;
-        double dataH = maxY - minY;
-        if (dataW < 1) dataW = 1;
-        if (dataH < 1) dataH = 1;
+        // сохраняем для обратного преобразования
+        mapMinX  = minX; mapMinY = minY;
+        mapScale = scale; mapOffX = offX; mapOffY = offY;
+        mapReady = true;
 
-        double pad = 40;
-        double scaleX = (canvas.getWidth() - 2 * pad) / dataW;
-        double scaleY = (canvas.getHeight() - 2 * pad) / dataH;
-        double scale = Math.min(scaleX, scaleY);
-        double offX = pad + ((canvas.getWidth() - 2 * pad) - dataW * scale) / 2;
-        double offY = pad + ((canvas.getHeight() - 2 * pad) - dataH * scale) / 2;
+        // Helper lambdas via arrays for brevity
+        // sx(p) = (p.x - minX) * scale + offX
+        // sy(p) = (p.y - minY) * scale + offY
 
-        // Сетка
-        gc.setStroke(Color.web("#e9ecef"));
-        gc.setLineWidth(0.5);
-        for (double x = 0; x < canvas.getWidth(); x += 50) {
-            gc.strokeLine(x, 0, x, canvas.getHeight());
-        }
-        for (double y = 0; y < canvas.getHeight(); y += 50) {
-            gc.strokeLine(0, y, canvas.getWidth(), y);
-        }
-
-        // Заливка треугольников (полупрозрачная)
+        // ── Заливка треугольников ─────────────────────────────────────────────
         Color[] fills = {
-            Color.web("#3498db", 0.12), Color.web("#2ecc71", 0.12),
-            Color.web("#e74c3c", 0.12), Color.web("#9b59b6", 0.12),
-            Color.web("#f39c12", 0.12), Color.web("#1abc9c", 0.12)
+            Color.web("#3498db", 0.15), Color.web("#2ecc71", 0.15),
+            Color.web("#9b59b6", 0.15), Color.web("#f39c12", 0.15),
+            Color.web("#1abc9c", 0.15), Color.web("#e67e22", 0.15)
         };
         for (int i = 0; i < triangles.size(); i++) {
             Triangle t = triangles.get(i);
-            double[] xs = {
-                (t.p1.x - minX) * scale + offX,
-                (t.p2.x - minX) * scale + offX,
-                (t.p3.x - minX) * scale + offX
-            };
-            double[] ys = {
-                (t.p1.y - minY) * scale + offY,
-                (t.p2.y - minY) * scale + offY,
-                (t.p3.y - minY) * scale + offY
-            };
+            double[] xs = { sx(t.p1, minX, scale, offX), sx(t.p2, minX, scale, offX), sx(t.p3, minX, scale, offX) };
+            double[] ys = { sy(t.p1, minY, scale, offY), sy(t.p2, minY, scale, offY), sy(t.p3, minY, scale, offY) };
             gc.setFill(fills[i % fills.length]);
             gc.fillPolygon(xs, ys, 3);
         }
 
-        // Рёбра
-        gc.setStroke(Color.web("#2c3e50"));
-        gc.setLineWidth(2);
+        // ── Рёбра ────────────────────────────────────────────────────────────
+        gc.setStroke(Color.web("#2c3e50", 0.85));
+        gc.setLineWidth(1.8);
         for (Triangle t : triangles) {
-            double x1 = (t.p1.x - minX) * scale + offX;
-            double y1 = (t.p1.y - minY) * scale + offY;
-            double x2 = (t.p2.x - minX) * scale + offX;
-            double y2 = (t.p2.y - minY) * scale + offY;
-            double x3 = (t.p3.x - minX) * scale + offX;
-            double y3 = (t.p3.y - minY) * scale + offY;
+            double x1 = sx(t.p1, minX, scale, offX), y1 = sy(t.p1, minY, scale, offY);
+            double x2 = sx(t.p2, minX, scale, offX), y2 = sy(t.p2, minY, scale, offY);
+            double x3 = sx(t.p3, minX, scale, offX), y3 = sy(t.p3, minY, scale, offY);
             gc.strokeLine(x1, y1, x2, y2);
             gc.strokeLine(x2, y2, x3, y3);
             gc.strokeLine(x3, y3, x1, y1);
         }
 
-        // Точки
+        // ── Точки ────────────────────────────────────────────────────────────
         for (int i = 0; i < points.size(); i++) {
             Point p = points.get(i);
-            double sx = (p.x - minX) * scale + offX;
-            double sy = (p.y - minY) * scale + offY;
-
-            // Тень
-            gc.setFill(Color.web("#000000", 0.15));
-            gc.fillOval(sx - 6, sy - 5, 12, 12);
-            // Точка
+            double px = sx(p, minX, scale, offX);
+            double py = sy(p, minY, scale, offY);
+            // тень
+            gc.setFill(Color.web("#000000", 0.12));
+            gc.fillOval(px - 6, py - 4, 12, 12);
+            // точка
             gc.setFill(Color.web("#e74c3c"));
-            gc.fillOval(sx - 5, sy - 5, 10, 10);
-            // Белая обводка
+            gc.fillOval(px - 5, py - 5, 10, 10);
+            // обводка
             gc.setStroke(Color.WHITE);
             gc.setLineWidth(1.5);
-            gc.strokeOval(sx - 5, sy - 5, 10, 10);
-
-            // Подпись номера
+            gc.strokeOval(px - 5, py - 5, 10, 10);
+            // номер
             gc.setFill(Color.web("#2c3e50"));
             gc.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
-            gc.fillText(String.valueOf(i + 1), sx + 7, sy - 7);
+            gc.fillText(String.valueOf(i + 1), px + 7, py - 5);
         }
 
-        // Легенда
-        gc.setFill(Color.web("#2c3e50"));
+        // ── Прицел мыши ──────────────────────────────────────────────────────
+        if (crosshair != null && mouseMode) {
+            gc.setStroke(Color.web("#e74c3c", 0.5));
+            gc.setLineWidth(1);
+            gc.setLineDashes(4, 4);
+            gc.strokeLine(cx, 0, cx, H);
+            gc.strokeLine(0, cy, W, cy);
+            gc.setLineDashes();
+            // превью точки
+            gc.setFill(Color.web("#e74c3c", 0.4));
+            gc.fillOval(cx - 5, cy - 5, 10, 10);
+        }
+
+        // ── Подсказка в режиме мыши ───────────────────────────────────────────
+        if (mouseMode) {
+            gc.setFill(Color.web("#3498db", 0.12));
+            gc.fillRoundRect(8, 8, 290, 22, 6, 6);
+            gc.setFill(Color.web("#2c3e50"));
+            gc.setFont(Font.font("Segoe UI", 11));
+            gc.fillText("ЛКМ — добавить точку  |  ПКМ — удалить последнюю", 14, 23);
+        }
+
+        // ── Легенда ───────────────────────────────────────────────────────────
+        gc.setFill(Color.web("#2c3e50", 0.65));
         gc.setFont(Font.font("Segoe UI", 11));
-        gc.fillText("Точек: " + points.size() + "  |  Треугольников: " + triangles.size(), 10, canvas.getHeight() - 8);
+        gc.fillText("Точек: " + points.size() + "   Треугольников: " + triangles.size(),
+                10, H - 8);
     }
 
+    private void drawEmpty() {
+        GraphicsContext gc = canvas.getGraphicsContext2D();
+        double W = canvas.getWidth(), H = canvas.getHeight();
+        gc.setFill(Color.web("#f8f9fa"));
+        gc.fillRect(0, 0, W, H);
+        gc.setStroke(Color.web("#dee2e6"));
+        gc.setLineWidth(0.5);
+        for (double x = 0; x < W; x += 50) gc.strokeLine(x, 0, x, H);
+        for (double y = 0; y < H; y += 50) gc.strokeLine(0, y, W, y);
+
+        gc.setFill(Color.web("#adb5bd"));
+        gc.setFont(Font.font("Segoe UI", 15));
+        String hint = mouseMode
+                ? "Кликните мышью для добавления точек"
+                : "Введите точки слева или загрузите файл";
+        gc.fillText(hint, W / 2 - 140, H / 2);
+    }
+
+    private static double sx(Point p, double minX, double scale, double offX) {
+        return (p.x - minX) * scale + offX;
+    }
+    private static double sy(Point p, double minY, double scale, double offY) {
+        return (p.y - minY) * scale + offY;
+    }
+
+    // ──────────────────────────── УТИЛИТЫ ─────────────────────────────────────
     private void updateStatus(String msg, boolean isError) {
         statusLabel.setText(msg);
-        if (isError) {
-            statusLabel.setStyle("-fx-text-fill: #e74c3c;");
-        } else {
-            statusLabel.setStyle("-fx-text-fill: #ecf0f1;");
-        }
+        statusLabel.setStyle(isError ? "-fx-text-fill: #e74c3c;" : "-fx-text-fill: #ecf0f1;");
     }
 
     private void showError(String msg) {
@@ -541,21 +657,14 @@ public class TriangulationUI extends VBox {
         updateStatus("Ошибка: " + msg.split("\n")[0], true);
     }
 
+    // ──────────────────────────── INNER CLASSES ───────────────────────────────
     static class Point {
         double x, y;
         Point(double x, double y) { this.x = x; this.y = y; }
-        @Override
-        public String toString() { return String.format("(%.1f, %.1f)", x, y); }
+        @Override public String toString() { return String.format("(%.1f, %.1f)", x, y); }
     }
 
     static class Triangle {
         Point p1, p2, p3;
-        Triangle(Point p1, Point p2, Point p3) {
-            this.p1 = p1; this.p2 = p2; this.p3 = p3;
-        }
-        @Override
-        public String toString() {
-            return p1 + " — " + p2 + " — " + p3;
-        }
-    }
-}
+        Triangle(Point p1, Point p2, Point p3) { this.p1 = p1; this.p2 = p2; this.p3 = p3; }
+        @Override public String toString() { return p1 + " — " + p2 + " — " + p3; }
