@@ -507,7 +507,8 @@ public class TriangulationUI extends HBox {
 
     private void triangulateInternal() {
         long t0 = System.nanoTime();
-        triangles = GreedyTriangulation.triangulate(points);
+        triangles.clear();
+        triangles.addAll(GreedyTriangulation.triangulate(points));
         long ms = (System.nanoTime() - t0) / 1_000_000;
 
         StringBuilder sb = new StringBuilder();
@@ -790,3 +791,5 @@ public class TriangulationUI extends HBox {
         Point p1, p2, p3;
         Triangle(Point p1, Point p2, Point p3) { this.p1 = p1; this.p2 = p2; this.p3 = p3; }
         @Override public String toString() { return p1 + " — " + p2 + " — " + p3; }
+    }
+}
