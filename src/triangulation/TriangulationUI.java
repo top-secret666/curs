@@ -1,6 +1,5 @@
 package triangulation;
 
-import javafx.beans.binding.Bindings;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.*;
@@ -8,6 +7,7 @@ import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.scene.text.TextAlignment;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.geometry.Insets;
@@ -23,21 +23,20 @@ public class TriangulationUI extends HBox {
     private final List<Point>    points    = new ArrayList<>();
     private final List<Triangle> triangles = new ArrayList<>();
 
-    // ─── режим мыши ───────────────────────────────────────────────────────────
-    private boolean mouseMode   = false;
-    private boolean autoTriang  = true;
-    /** масштабирование canvas→данные (обновляется при каждой перерисовке) */
+    // ─── состояние ────────────────────────────────────────────────────────────
+    private boolean mouseMode  = true;   // включён по умолчанию
+    private boolean autoTriang = true;
     private double  mapMinX, mapMinY, mapScale, mapOffX, mapOffY;
-    private boolean mapReady = false;
+    private boolean mapReady   = false;
 
     // ─── UI-компоненты ────────────────────────────────────────────────────────
-    private TextArea inputArea;
-    private TextArea outputArea;
-    private Canvas   canvas;
-    private Label    statusLabel;
-    private Label    validationLabel;
-    private Label    coordLabel;
-    private Label    modeLabel;
+    private TextArea     inputArea;
+    private TextArea     outputArea;
+    private Canvas       canvas;
+    private Label        statusLabel;
+    private Label        validationLabel;
+    private Label        coordLabel;
+    private Label        pointCountLabel;
     private ToggleButton mouseModeBtn;
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -45,57 +44,64 @@ public class TriangulationUI extends HBox {
         setSpacing(0);
         setPadding(Insets.EMPTY);
 
-        // ═════════════════════════ ЛЕВАЯ ПАНЕЛЬ ══════════════════════════════
-        VBox leftPanel = buildLeftPanel(stage);
-        leftPanel.setPrefWidth(310);
-        leftPanel.setMinWidth(260);
-        leftPanel.setMaxWidth(360);
-        leftPanel.getStyleClass().add("left-panel");
-
-        // ═════════════════════════ ПРАВАЯ ПАНЕЛЬ (canvas) ════════════════════
+        VBox leftPanel  = buildLeftPanel(stage);
         VBox rightPanel = buildRightPanel();
         HBox.setHgrow(rightPanel, Priority.ALWAYS);
 
         getChildren().addAll(leftPanel, rightPanel);
     }
 
-    // ──────────────────────────── ЛЕВАЯ ПАНЕЛЬ ────────────────────────────────
+    // ═══════════════════════════ ЛЕВАЯ ПАНЕЛЬ ═════════════════════════════════
     private VBox buildLeftPanel(Stage stage) {
-        VBox panel = new VBox(14);
-        panel.setPadding(new Insets(20, 16, 16, 20));
+        VBox root = new VBox(0);
+        root.setPrefWidth(306);
+        root.setMinWidth(260);
+        root.setMaxWidth(360);
+        root.getStyleClass().add("left-panel");
 
-        // Заголовок
-        Label title = new Label("▲ Триангуляция");
+        // ── Шапка ─────────────────────────────────────────────────────────────
+        VBox header = new VBox(2);
+        header.getStyleClass().add("app-header");
+        header.setPadding(new Insets(22, 20, 18, 20));
+        Label icon  = new Label("△");
+        icon.getStyleClass().add("app-icon");
+        Label title = new Label("Триангуляция");
         title.getStyleClass().add("title-label");
-        Label subtitle = new Label("Жадный алгоритм");
-        subtitle.getStyleClass().add("subtitle-label");
+        Label sub   = new Label("Жадный алгоритм");
+        sub.getStyleClass().add("subtitle-label");
+        header.getChildren().addAll(icon, title, sub);
 
-        // ── Переключатель режима ──────────────────────────────────────────────
-        mouseModeBtn = new ToggleButton("🖱 Режим мыши");
+        // ── Скроллируемый контент ──────────────────────────────────────────
+        VBox content = new VBox(12);
+        content.setPadding(new Insets(14, 14, 20, 14));
+
+        // — Режим рисования —
+        mouseModeBtn = new ToggleButton("✏  Режим рисования  ·  АКТИВЕН");
+        mouseModeBtn.setSelected(true);
         mouseModeBtn.setMaxWidth(Double.MAX_VALUE);
         mouseModeBtn.getStyleClass().add("mode-toggle");
         mouseModeBtn.selectedProperty().addListener((obs, o, n) -> {
             mouseMode = n;
-            modeLabel.setText(mouseMode
-                    ? "▸ Кликните по холсту для добавления точек"
-                    : "▸ Введите координаты в текстовом поле");
+            mouseModeBtn.setText(n ? "✏  Режим рисования  ·  АКТИВЕН"
+                                   : "✏  Режим рисования  ·  выключен");
             if (!mouseMode) redrawFromInput();
+            else redraw();
         });
 
         CheckBox autoCheck = new CheckBox("Авто-триангуляция при добавлении");
         autoCheck.setSelected(true);
-        autoCheck.selectedProperty().addListener((obs, o, n) -> autoTriang = n);
         autoCheck.getStyleClass().add("auto-check");
+        autoCheck.selectedProperty().addListener((obs, o, n) -> autoTriang = n);
 
-        modeLabel = new Label("▸ Введите координаты в текстовом поле");
-        modeLabel.getStyleClass().add("hint-label");
-        modeLabel.setWrapText(true);
+        Label drawHint = new Label("ЛКМ — поставить точку   ·   ПКМ — убрать последнюю");
+        drawHint.getStyleClass().add("hint-label");
+        drawHint.setWrapText(true);
 
-        VBox modeCard = new VBox(8, mouseModeBtn, autoCheck, modeLabel);
+        VBox modeCard = new VBox(8, mouseModeBtn, autoCheck, drawHint);
         modeCard.getStyleClass().add("card");
 
-        // ── Ввод данных ───────────────────────────────────────────────────────
-        Label inputLabel = new Label("Координаты точек (x y):");
+        // ── Ввод координат ────────────────────────────────────────────────────
+        Label inputLabel = new Label("КООРДИНАТЫ  ( x  y )");
         inputLabel.getStyleClass().add("section-label");
 
         inputArea = new TextArea();
