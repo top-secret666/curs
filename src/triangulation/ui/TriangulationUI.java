@@ -445,8 +445,8 @@ public class TriangulationUI extends HBox {
     }
 
     private void saveToFile(Stage stage) {
-        if (outputArea.getText().isEmpty()) {
-            showError("\u041d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445. \u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u043f\u043e\u0441\u0442\u0440\u043e\u0439\u0442\u0435 \u0442\u0440\u0438\u0430\u043d\u0433\u0443\u043b\u044f\u0446\u0438\u044e.");
+        if (points.isEmpty()) {
+            showError("\u041d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445. \u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0434\u043e\u0431\u0430\u0432\u044c\u0442\u0435 \u0442\u043e\u0447\u043a\u0438.");
             return;
         }
         FileChooser fc = new FileChooser();
@@ -456,8 +456,12 @@ public class TriangulationUI extends HBox {
         if (file != null) {
             try (PrintWriter pw = new PrintWriter(
                     new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8))) {
-                pw.print(outputArea.getText());
-                updateStatus("\u0421\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u043e: " + file.getName(), false);
+                pw.println("# \u0422\u043e\u0447\u043a\u0438: " + points.size()
+                        + "  \u0422\u0440\u0435\u0443\u0433\u043e\u043b\u044c\u043d\u0438\u043a\u043e\u0432: " + triangles.size());
+                for (Point p : points)
+                    pw.println(String.format("%.0f %.0f", p.x, p.y));
+                updateStatus("\u0421\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u043e: " + file.getName()
+                        + " (" + points.size() + " \u0442\u043e\u0447\u0435\u043a)", false);
             } catch (IOException ex) {
                 showError("\u041e\u0448\u0438\u0431\u043a\u0430 \u0437\u0430\u043f\u0438\u0441\u0438: " + ex.getMessage());
             }
