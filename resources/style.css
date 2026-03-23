@@ -1,5 +1,270 @@
-/* ===== Основные стили ===== */
+/* ─────────────────────────────────────────────────────────
+   ГЛОБАЛЬНЫЕ СТИЛИ
+───────────────────────────────────────────────────────── */
 .root {
+    -fx-font-family: 'Segoe UI', 'Arial', sans-serif;
+    -fx-font-size: 13px;
+}
+
+/* ─────────────────────────────────────────────────────────
+   ПАНЕЛИ
+───────────────────────────────────────────────────────── */
+.left-panel {
+    -fx-background-color: #1e2a3a;
+    -fx-border-color: #0f1923;
+    -fx-border-width: 0 1 0 0;
+}
+
+.right-panel {
+    -fx-background-color: #f0f4f8;
+}
+
+/* ─────────────────────────────────────────────────────────
+   ТУЛБАР ХОЛСТА
+───────────────────────────────────────────────────────── */
+.canvas-toolbar {
+    -fx-background-color: #2c3e50;
+    -fx-padding: 10 16;
+    -fx-min-height: 44;
+    -fx-max-height: 44;
+}
+
+.canvas-title {
+    -fx-text-fill: #ecf0f1;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+
+.coord-label {
+    -fx-text-fill: #95a5a6;
+    -fx-font-family: 'Consolas', 'Courier New', monospace;
+    -fx-font-size: 12px;
+}
+
+/* ─────────────────────────────────────────────────────────
+   ХОЛСТ
+───────────────────────────────────────────────────────── */
+.canvas-holder {
+    -fx-background-color: #f8f9fa;
+}
+
+/* ─────────────────────────────────────────────────────────
+   СТАТУС-БАР
+───────────────────────────────────────────────────────── */
+.status-bar {
+    -fx-background-color: #34495e;
+    -fx-padding: 7 16;
+    -fx-min-height: 32;
+    -fx-max-height: 32;
+}
+
+.status-label {
+    -fx-text-fill: #bdc3c7;
+    -fx-font-size: 12px;
+}
+
+/* ─────────────────────────────────────────────────────────
+   ЗАГОЛОВКИ
+───────────────────────────────────────────────────────── */
+.title-label {
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #ecf0f1;
+    -fx-padding: 0 0 0 0;
+}
+
+.subtitle-label {
+    -fx-font-size: 12px;
+    -fx-text-fill: #7f8c8d;
+    -fx-padding: 0 0 4 0;
+}
+
+.section-label {
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #95a5a6;
+    -fx-padding: 0 0 2 0;
+}
+
+.hint-label {
+    -fx-font-size: 11px;
+    -fx-text-fill: #7f8c8d;
+    -fx-font-style: italic;
+}
+
+/* ─────────────────────────────────────────────────────────
+   КАРТОЧКИ
+───────────────────────────────────────────────────────── */
+.card {
+    -fx-background-color: #253447;
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+    -fx-border-color: #2c4058;
+    -fx-border-width: 1;
+    -fx-padding: 14;
+}
+
+/* ─────────────────────────────────────────────────────────
+   ТЕКСТОВЫЕ ПОЛЯ
+───────────────────────────────────────────────────────── */
+.text-area {
+    -fx-background-color: #1a2535;
+    -fx-border-color: #2c4058;
+    -fx-border-radius: 7;
+    -fx-background-radius: 7;
+    -fx-font-family: 'Consolas', 'Courier New', monospace;
+    -fx-font-size: 12px;
+    -fx-text-fill: #dfe6e9;
+    -fx-prompt-text-fill: #4a6278;
+}
+
+.text-area:focused {
+    -fx-border-color: #3498db;
+    -fx-border-width: 2;
+}
+
+.text-area .content {
+    -fx-background-color: #1a2535;
+    -fx-background-radius: 7;
+}
+
+.text-area .scroll-pane {
+    -fx-background-color: transparent;
+}
+
+.text-area .scroll-pane .viewport {
+    -fx-background-color: transparent;
+}
+
+/* ─────────────────────────────────────────────────────────
+   КНОПКИ
+───────────────────────────────────────────────────────── */
+.button {
+    -fx-background-color: #2980b9;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+    -fx-padding: 8 18;
+    -fx-background-radius: 7;
+    -fx-border-radius: 7;
+    -fx-cursor: hand;
+}
+
+.button:hover   { -fx-background-color: #3498db; }
+.button:pressed { -fx-background-color: #1a6da0; }
+
+.btn-primary {
+    -fx-background-color: #27ae60;
+    -fx-font-size: 13px;
+    -fx-padding: 11 20;
+}
+.btn-primary:hover   { -fx-background-color: #2ecc71; }
+.btn-primary:pressed { -fx-background-color: #1e8449; }
+
+.btn-secondary {
+    -fx-background-color: #2c3e50;
+    -fx-border-color: #3d5166;
+    -fx-border-width: 1;
+}
+.btn-secondary:hover { -fx-background-color: #34495e; }
+
+.btn-danger {
+    -fx-background-color: #c0392b;
+}
+.btn-danger:hover { -fx-background-color: #e74c3c; }
+
+/* ─────────────────────────────────────────────────────────
+   ПЕРЕКЛЮЧАТЕЛЬ РЕЖИМА
+───────────────────────────────────────────────────────── */
+.mode-toggle {
+    -fx-background-color: #2c3e50;
+    -fx-text-fill: #bdc3c7;
+    -fx-border-color: #3d5166;
+    -fx-border-width: 1;
+    -fx-font-size: 12px;
+    -fx-padding: 9 16;
+    -fx-background-radius: 7;
+    -fx-border-radius: 7;
+}
+
+.mode-toggle:hover {
+    -fx-background-color: #34495e;
+}
+
+.mode-toggle:selected {
+    -fx-background-color: #e67e22;
+    -fx-text-fill: white;
+    -fx-border-color: #d35400;
+}
+
+.mode-toggle:selected:hover {
+    -fx-background-color: #f39c12;
+}
+
+/* ─────────────────────────────────────────────────────────
+   ЧЕКБОКСЫ
+───────────────────────────────────────────────────────── */
+.auto-check {
+    -fx-text-fill: #95a5a6;
+    -fx-font-size: 12px;
+}
+
+.auto-check .box {
+    -fx-background-color: #1a2535;
+    -fx-border-color: #3d5166;
+}
+
+.auto-check:selected .box {
+    -fx-background-color: #27ae60;
+    -fx-border-color: #27ae60;
+}
+
+.auto-check .mark {
+    -fx-background-color: white;
+}
+
+/* ─────────────────────────────────────────────────────────
+   ВАЛИДАЦИЯ
+───────────────────────────────────────────────────────── */
+.validation-error {
+    -fx-border-color: #e74c3c !important;
+    -fx-border-width: 2 !important;
+}
+
+.validation-ok {
+    -fx-border-color: #27ae60 !important;
+    -fx-border-width: 2 !important;
+}
+
+.error-text {
+    -fx-text-fill: #e74c3c;
+    -fx-font-size: 11px;
+}
+
+.ok-text {
+    -fx-text-fill: #27ae60;
+    -fx-font-size: 11px;
+}
+
+/* ─────────────────────────────────────────────────────────
+   SCROLL-BARS
+───────────────────────────────────────────────────────── */
+.scroll-bar:vertical .thumb,
+.scroll-bar:horizontal .thumb {
+    -fx-background-color: #3d5166;
+    -fx-background-radius: 4;
+}
+
+.scroll-bar .track {
+    -fx-background-color: #1a2535;
+}
+
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button {
+    -fx-background-color: #1a2535;
+    -fx-padding: 2;
+}
+
     -fx-font-family: 'Segoe UI', 'Arial', sans-serif;
     -fx-font-size: 14px;
     -fx-background-color: linear-gradient(to bottom right, #e8edf5, #d5dce8);
