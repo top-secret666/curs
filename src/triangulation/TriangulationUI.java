@@ -420,7 +420,18 @@ public class TriangulationUI extends HBox {
                 String line;
                 while ((line = br.readLine()) != null) sb.append(line).append("\n");
                 inputArea.setText(sb.toString().trim());
-                updateStatus("Файл загружен: " + file.getName(), false);
+                // Сразу парсим точки и рисуем
+                points.clear();
+                triangles.clear();
+                parsePointsFromText();
+                updatePointCount();
+                if (points.size() >= 3 && !areAllCollinear(points)) {
+                    triangulateInternal();
+                }
+                redraw();
+                updateStatus("Файл загружен: " + file.getName()
+                        + "  ·  Точек: " + points.size()
+                        + (triangles.isEmpty() ? "" : "  ·  △: " + triangles.size()), false);
             } catch (IOException ex) {
                 showError("Ошибка чтения файла: " + ex.getMessage());
             }
@@ -475,29 +486,29 @@ public class TriangulationUI extends HBox {
     }
 
     private void triangulate() {
-        if (!mouseMode) {
-            points.clear();
-            triangles.clear();
-            List<String> errors = new ArrayList<>();
-            String[] lines = inputArea.getText().split("\n");
-            int lineNum = 0;
-            for (String line : lines) {
-                lineNum++;
-                String t = line.trim().replace(',', '.').replace('\t', ' ');
-                if (t.isEmpty() || t.startsWith("#")) continue;
-                String[] parts = t.split("\\s+");
-                if (parts.length != 2) { errors.add("Стр. " + lineNum + ": нужно 2 числа"); continue; }
-                try {
-                    double x = Double.parseDouble(parts[0]);
-                    double y = Double.parseDouble(parts[1]);
-                    if (Double.isNaN(x) || Double.isInfinite(x) || Double.isNaN(y) || Double.isInfinite(y)) {
-                        errors.add("Стр. " + lineNum + ": NaN/Infinity"); continue;
-                    }
-                    points.add(new Point(x, y));
-                } catch (NumberFormatException e) { errors.add("Стр. " + lineNum + ": не числа"); }
-            }
-            if (!errors.isEmpty()) { showError("Ошибки:\n" + String.join("\n", errors)); return; }
+        // Всегда пересинхронизируем точки из текстового поля
+        points.clear();
+        triangles.clear();
+        List<String> errors = new ArrayList<>();
+        String[] lines = inputArea.getText().split("\n");
+        int lineNum = 0;
+        for (String line : lines) {
+            lineNum++;
+            String t = line.trim().replace(',', '.').replace('\t', ' ');
+            if (t.isEmpty() || t.startsWith("#")) continue;
+            String[] parts = t.split("\\s+");
+            if (parts.length != 2) { errors.add("Стр. " + lineNum + ": нужно 2 числа"); continue; }
+            try {
+                double x = Double.parseDouble(parts[0]);
+                double y = Double.parseDouble(parts[1]);
+                if (Double.isNaN(x) || Double.isInfinite(x) || Double.isNaN(y) || Double.isInfinite(y)) {
+                    errors.add("Стр. " + lineNum + ": NaN/Infinity"); continue;
+                }
+                points.add(new Point(x, y));
+            } catch (NumberFormatException e) { errors.add("Стр. " + lineNum + ": не числа"); }
         }
+        updatePointCount();
+        if (!errors.isEmpty()) { showError("Ошибки:\n" + String.join("\n", errors)); return; }
 
         if (points.size() < 3) { showError("Нужно минимум 3 точки.\nСейчас: " + points.size()); return; }
         if (areAllCollinear(points)) { showError("Все точки на одной прямой — триангуляция невозможна."); return; }
