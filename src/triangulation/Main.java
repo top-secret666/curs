@@ -3,6 +3,7 @@ package triangulation;
 import javafx.application.Application;
 import javafx.stage.Stage;
 import javafx.scene.Scene;
+import triangulation.ui.TriangulationUI;
 
 import java.net.URL;
 import java.nio.file.Files;
