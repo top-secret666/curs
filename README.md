@@ -70,5 +70,4 @@ java --module-path "C:\javafx-sdk\lib" --add-modules javafx.controls,javafx.fxml
 120 260
 ```
 
-
----
+<img width="640" height="480" alt="bored-alone" src="https://github.com/user-attachments/assets/b28f1dd7-3eb7-41c8-a3a7-4b85e9b068a0" />
