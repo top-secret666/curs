@@ -1,6 +1,8 @@
 # Триангуляция — Жадный алгоритм
 
-JavaFX-приложение для построения триангуляции множества точек на плоскости с визуализацией.
+STUDY JavaFX-приложение для построения триангуляции множества точек на плоскости с визуализацией.
+
+<img width="1356" height="892" alt="image" src="https://github.com/user-attachments/assets/df8baa48-a8b5-4e57-9ebe-6332a65b7bc1" />
 
 ## Функционал
 
@@ -70,5 +72,3 @@ java --module-path "C:\javafx-sdk\lib" --add-modules javafx.controls,javafx.fxml
 
 
 ---
-
-_Документ обновляется по мере выполнения проекта._
